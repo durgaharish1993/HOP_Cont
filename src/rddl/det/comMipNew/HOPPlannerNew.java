@@ -38,8 +38,12 @@ import rddl.policy.RandomPolicy;
 //import rddl.det.comMip.HOPTranslate;
 import rddl.policy.Policy;
 import util.Pair;
+import rddl.RDDL.INSTANCE;
+import rddl.RDDL.NONFLUENTS;
+
 
 import rddl.det.comMipNew.EarthForPlanner.*;
+
 
 public class HOPPlannerNew extends Policy {
 
@@ -160,6 +164,12 @@ public class HOPPlannerNew extends Policy {
 
     protected int num_futures;
     protected int lookahead;
+    protected INSTANCE instance;
+    protected RDDL rddl;
+    protected State state;
+    protected RDDL.DOMAIN domain;
+    protected RDDL.NONFLUENTS nonFluents;
+
     protected FUTURE_SAMPLING future_gen;
 
     private static final RDDL.TYPE_NAME
@@ -175,52 +185,70 @@ public class HOPPlannerNew extends Policy {
     /*COMPETITION PARAMETERS*/
 
     protected Boolean DO_GUROBI_INITIALIZATION = false;
-    protected Boolean DO_NPWL_PWL = true;
+    protected Boolean DO_NPWL_PWL = false;
 
     protected double TIME_LIMIT_MINS = 10;
 
     protected Policy random_policy = null;
 
-    public HOPPlannerNew(String n_futures, String n_lookahead, String inst_name,
-                      String gurobi_timeout, String future_gen_type, String hindsight_strat, String rand_seed,
-                      RDDL rddl_object, State s) throws Exception {
+    public HOPPlannerNew(String rddl_filename, String n_futures, String n_lookahead, String inst_name,
+                      String gurobi_timeout, String future_gen_type, String hindsight_strat, String rand_seed) throws Exception {
+        //Initializing the variables!!
+        //RDDL rddl = new RDDL(rddl_filename);
+        //State state = new State();;
+        //NONFLUENTS nonFluents = null;
+        //RDDL.DOMAIN domain = null;
+        //INSTANCE instance = null;
+        rddl = new RDDL(rddl_filename);
+        state = new State();
 
+        if (!rddl._tmInstanceNodes.containsKey(inst_name)) {
+            System.out.println("Instance name '" + inst_name + "' not found in  " + rddl._tmInstanceNodes.keySet());
+            System.exit(1);
+        }
+        instance = rddl._tmInstanceNodes.get(inst_name);
+        if (instance._sNonFluents != null) {
+            nonFluents = rddl._tmNonFluentNodes.get(instance._sNonFluents);
+        }
+        domain = rddl._tmDomainNodes.get(instance._sDomain);
+        if (nonFluents != null && !instance._sDomain.equals(nonFluents._sDomain)) {
+            System.err.println("Domain name of instance and fluents do not match: " +
+                    instance._sDomain + " vs. " + nonFluents._sDomain);
+            System.exit(1);
+        }
+        state.init(domain._hmObjects, nonFluents != null ? nonFluents._hmObjects : null, instance._hmObjects,
+                domain._hmTypes, domain._hmPVariables, domain._hmCPF,
+                instance._alInitState, nonFluents == null ? new ArrayList<PVAR_INST_DEF>() : nonFluents._alNonFluents, instance._alNonFluents,
+                domain._alStateConstraints, domain._alActionPreconditions, domain._alStateInvariants,
+                domain._exprReward, instance._nNonDefActions);
+
+        //Initializing the parameters for hte HOP Planner.
         this.num_futures      = Integer.parseInt(n_futures);
         this.lookahead        = Integer.parseInt(n_lookahead);
         this.future_gen       = FUTURE_SAMPLING.valueOf(future_gen_type);
         this.hindsight_method = HINDSIGHT_STRATEGY.valueOf(hindsight_strat);
         this.TIME_LIMIT_MINS  = Double.valueOf(gurobi_timeout);
-        initializeCompetitionRDDL(rddl_object, inst_name, s);
+        initializeCompetitionRDDL(rddl, inst_name, state);
         this.setRandSeed(Long.parseLong(rand_seed));
         this.random_policy = new RandomPolicy();
-
         this.objects = new HashMap<>( rddl_instance._hmObjects );
         if( rddl_nonfluents != null && rddl_nonfluents._hmObjects != null ){
             objects.putAll( rddl_nonfluents._hmObjects );
         }
-
         getConstants();
-
         for( Entry<PVAR_NAME, RDDL.PVARIABLE_DEF> entry : rddl_state._hmPVariables.entrySet() ){
-
             final RDDL.TYPE_NAME rddl_type = entry.getValue()._typeRange;
             RDDL.TYPE_DEF tdef = rddl_state._hmTypes.get(rddl_type);
-
             char grb_type = 'Z';
-
             if(tdef instanceof RDDL.ENUM_TYPE_DEF){
                 grb_type = GRB.INTEGER;
-
             }else{
                 grb_type = rddl_type.equals( RDDL.TYPE_NAME.BOOL_TYPE ) ? GRB.BINARY :
                         rddl_type.equals( RDDL.TYPE_NAME.INT_TYPE ) ? GRB.INTEGER : GRB.CONTINUOUS;
             }
-
             assert(grb_type != 'Z');
-
             this.object_type_name.put(entry.getKey(), entry.getValue()._alParamTypes);
             //object_val_mapping.put(object_type_name.get(entry.getKey()),  rddl_state._hmObject2Consts.get(object_type_name.get(entry.getKey()))   );
-
             this.type_map.put( entry.getKey(), grb_type );
 
         }
@@ -324,6 +352,9 @@ public class HOPPlannerNew extends Policy {
         }
         return ret;
     }
+
+
+
 
 
 
@@ -2219,7 +2250,58 @@ public class HOPPlannerNew extends Policy {
     }
 
 
+    public void evaluatePlanner(String num_of_rounds) throws Exception{
 
+        int horizon  = instance._nHorizon;
+        double cur_discount = instance._dDiscount;
+        int n_rounds = Integer.parseInt(num_of_rounds);
+        double accum_reward = 0.0;
+        double round_reward = 0.0;
+
+        for(int i=0 ; i<n_rounds; i++){
+            state.init(domain._hmObjects, nonFluents != null ? nonFluents._hmObjects : null, instance._hmObjects,
+                    domain._hmTypes, domain._hmPVariables, domain._hmCPF,
+                    instance._alInitState, nonFluents == null ? new ArrayList<PVAR_INST_DEF>() : nonFluents._alNonFluents, instance._alNonFluents,
+                    domain._alStateConstraints, domain._alActionPreconditions, domain._alStateInvariants,
+                    domain._exprReward, instance._nNonDefActions);
+
+            //This is for horizon present in Instace File. ...
+            for(int h=0; h<horizon;h++){
+                if(DO_NPWL_PWL){
+                    checkNonLinearExpressions(state);
+                }
+
+
+                ArrayList<PVAR_INST_DEF> actions = null;
+                try {
+                    actions = getActions(state);
+                    System.out.println("The Action Taken is >>" + actions.toString());
+                    state.checkStateActionConstraints(actions);
+                }catch(Exception e1){
+                    // This is the case when actions are infeasible or gurobi has infeasiblity.
+                    actions = baseLineAction(state);
+                }
+
+                //Computing the next state!!>
+                state.computeNextState(actions,_random);
+
+                try{
+
+                    state.checkStateActionConstraints(actions);
+                } catch (Exception e){
+
+                    System.out.println("State or Action Contraint Voilated ");
+                    throw e;
+                }
+
+                final double immediate_reward = ((Number)domain._exprReward.sample(new HashMap<LVAR,LCONST>(),state,_random)).doubleValue();
+
+                accum_reward += immediate_reward * cur_discount;
+                cur_discount *= instance._dDiscount;
+            }
+
+        }
+    }
 
 
 
@@ -2227,7 +2309,32 @@ public class HOPPlannerNew extends Policy {
     public static void main(String[] args)throws Exception{
 
         //need to implement a calling function!!!..
+        // 1. rddl_file_path
+        // 2. rddl_instance_name
+        // 3. n_Futures
+        // 4. n_lookahead
+        // 5. gurobi_timeout
+        // 6. future_gen_type
+        // 7. hindsight_strat
+        // 8. num_of_rounds
+        // 9. rand_seed
 
+        String rddl_file_path = args[0];
+        String rddl_instance_name = args[1];
+        String n_Futures = args[2];
+        String n_lookahead = args[3];
+        String gurobi_timeout = args[4];
+        String future_gen_type = args[5];
+        String hindsight_strat = args[6];
+        String num_of_rounds   = args[7];
+        String rand_seed = args[8];
+
+
+
+        HOPPlannerNew hop_obj = new HOPPlannerNew(rddl_file_path,n_Futures,n_lookahead,rddl_instance_name,gurobi_timeout,future_gen_type,hindsight_strat,rand_seed);
+
+
+        hop_obj.evaluatePlanner(num_of_rounds);
 
 
 

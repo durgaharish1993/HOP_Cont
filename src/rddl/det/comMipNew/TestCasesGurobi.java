@@ -3380,9 +3380,6 @@ public class TestCasesGurobi {
     }
 
 
-
-
-
     public static void testCaseGurobiRealLess() throws Exception{
 
         initalizeGurobi();
@@ -3796,9 +3793,6 @@ public class TestCasesGurobi {
 
 
     }
-
-
-
 
 
     public static void testCaseGurobiRealAnd() throws Exception{
@@ -4227,8 +4221,6 @@ public class TestCasesGurobi {
     }
 
 
-
-
     public static void testCaseGurobiAnd() throws Exception{
 
         initalizeGurobi();
@@ -4654,9 +4646,6 @@ public class TestCasesGurobi {
     }
 
 
-
-
-
     public static void testCaseGurobiOr() throws Exception{
 
         initalizeGurobi();
@@ -5080,8 +5069,6 @@ public class TestCasesGurobi {
 
 
     }
-
-
 
 
     public static void testCaseGurobiNot() throws Exception{
@@ -6415,7 +6402,6 @@ public class TestCasesGurobi {
 
 
     }
-
 
 
 

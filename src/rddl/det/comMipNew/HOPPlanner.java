@@ -54,6 +54,7 @@ public class HOPPlanner extends Policy {
     protected boolean SHOW_GUROBI_ADD = false;
     protected boolean SHOW_PWL_NON_PWL = false;
     protected boolean SHOW_TIME_ZERO_GUROBI_ACTION = false;
+
     //protected boolean DO_GUROBI_INITIALIZATION = true;
     //DO_GUROBI_INITIALIZATION
     ///////////////////////////////////////////////////////////
@@ -436,8 +437,6 @@ public class HOPPlanner extends Policy {
         return null;
     }
 
-
-
     private void firstTimeModel( ) {
         try {
             System.out.println("1. initializeGRB \n" +
@@ -454,8 +453,6 @@ public class HOPPlanner extends Policy {
         }
 
     }
-
-
 
     public Pair<Map< EXPR, Double >,Integer> doPlan(HashMap<PVAR_NAME, HashMap<ArrayList<LCONST>, Object>> subs ,
                                                     final boolean recover ) throws Exception {
@@ -510,7 +507,6 @@ public class HOPPlanner extends Policy {
         return new Pair<>(ret,exit_code);
     }
 
-
     protected void addExtraPredicates() {
         System.out.println("----Adding Extra Predicates");
         removeExtraPredicates();
@@ -545,8 +541,6 @@ public class HOPPlanner extends Policy {
         }
     }
 
-
-
     protected HashMap<PVAR_NAME, HashMap<ArrayList<LCONST>, Object>> getSubsWithDefaults(final State state) throws EvalException {
 
         final HashMap<PVAR_NAME, HashMap<ArrayList<LCONST>, Object>> ret
@@ -574,8 +568,6 @@ public class HOPPlanner extends Policy {
         }
         return ret;
     }
-
-
 
 
     protected void addAllVariables( ) throws Exception{
@@ -1347,8 +1339,6 @@ public class HOPPlanner extends Policy {
     }
 
 
-
-
     protected int goOptimize(final GRBModel grb_model) throws GRBException {
 
         grb_model.update();
@@ -1469,7 +1459,6 @@ public class HOPPlanner extends Policy {
     }
 
 
-
     protected static void outputNAMEMAPFile(final GRBModel grb_model) throws GRBException, IOException {
         grb_model.write( OUTPUT_FILE );
         ArrayList<String> data = new ArrayList<>();
@@ -1484,7 +1473,6 @@ public class HOPPlanner extends Policy {
         }
         writer.close();
     }
-
 
 
     protected void outputLPFile(final GRBModel grb_model) throws GRBException, IOException {
@@ -1799,7 +1787,7 @@ public class HOPPlanner extends Policy {
         //This is for random policy immediate average reward.
     }
 
-
+    // Not sure what is this function about..
     public void convertNPWLtoPWL(State s) throws Exception {
         long startTime1 = System.currentTimeMillis();
         checkNonLinearExpressions(s);
@@ -2229,6 +2217,27 @@ public class HOPPlanner extends Policy {
         RDDL.EXPR.cleanUpGRB();
         System.gc();
     }
+
+
+
+
+
+
+
+    public static void main(String[] args)throws Exception{
+
+        //need to implement a calling function!!!..
+
+
+
+
+
+
+    }
+
+
+
+
 
 
 }
